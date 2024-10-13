@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Micrófono - Amplificador</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        input {
+            font-size: 16px;
+            padding: 10px;
+            width: 80%; /* Ancho responsivo */
+            max-width: 300px; /* Ancho máximo */
+            margin-bottom: 20px;
+        }
+        @media (max-width: 600px) {
+            button {
+                width: 100%; /* Botones ocupan todo el ancho en móviles */
+                margin: 5px 0; /* Margen vertical */
+            }
+
+            input {
+                width: calc(100% - 20px); /* Ajusta el ancho del input */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Control de Micrófono - Amplificador 24 horas</h1>
+    <label for="gain">Nivel de volumen (1.0 a 4.0): </label>
+    <input type="number" id="gain" value="1.0" min="1.0" max="4.0" step="0.1">
+    <br>
+    <button onclick="startMicrophone()">Iniciar Micrófono</button>
+    <button onclick="stopMicrophone()">Apagar Micrófono</button>
+    <p id="status"></p>
+
+    <script>
+        let audioContext, microphone, gainNode;
+        let isRecording = false;
+        let intervalId;
+
+        // Función para verificar si hay soporte de media devices
+        function checkMicrophonePermissions() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('status').innerText = 'Este navegador no soporta el uso de micrófono.';
+                return false;
+            }
+            return true;
+        }
+
+        // Función para iniciar la captura del micrófono
+        async function startMicrophone() {
+            if (!checkMicrophonePermissions()) return;
+
+            if (isRecording) {
+                alert("El micrófono ya está activo.");
+                return;
+            }
+
+            try {
+                // Crear un nuevo contexto de audio
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Obtener acceso al micrófono
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Crear un nodo de origen de audio a partir del micrófono
+                microphone = audioContext.createMediaStreamSource(stream);
+
+                // Crear un nodo de ganancia para ajustar el volumen
+                gainNode = audioContext.createGain();
+                updateGain();
+
+                // Conectar el micrófono al nodo de ganancia, y luego al destino (salida de audio)
+                microphone.connect(gainNode).connect(audioContext.destination);
+
+                isRecording = true;
+                document.getElementById('status').innerText = 'Micrófono iniciado. Funcionará hasta que lo apagues.';
+
+                // Mantén el micrófono activo durante 24 horas
+                intervalId = setTimeout(() => {
+                    alert('Han pasado 24 horas. El micrófono se apagará automáticamente.');
+                    stopMicrophone();
+                }, 24 * 60 * 60 * 1000); // 24 horas en milisegundos
+            } catch (err) {
+                console.error("Error al iniciar el micrófono:", err);
+                document.getElementById('status').innerText = 'No se pudo acceder al micrófono. Asegúrate de haber permitido el acceso en los permisos del navegador.';
+            }
+        }
+
+        // Función para ajustar el volumen (ganancia)
+        function updateGain() {
+            const gainValue = parseFloat(document.getElementById('gain').value);
+            if (gainNode) {
+                gainNode.gain.value = gainValue;
+            }
+        }
+
+        // Función para detener la captura del micrófono
+        function stopMicrophone() {
+            if (microphone) {
+                microphone.disconnect();
+                gainNode.disconnect();
+                audioContext.close();
+                isRecording = false;
+                clearTimeout(intervalId); // Cancela el temporizador de 24 horas
+                document.getElementById('status').innerText = 'Micrófono apagado.';
+            } else {
+                alert("El micrófono no está activo.");
+            }
+        }
+
+        // Actualiza el volumen en tiempo real
+        document.getElementById('gain').addEventListener('input', updateGain);
+    </script>
+</body>
+</html>
